@@ -1,9 +1,0 @@
-local args = {
-    [1] = "Flower pot?"
-}
-
-game:GetService("ReplicatedStorage").RemoteEvents.Equip:FireServer(unpack(args))local args = {
-    [1] = "Flower pot?"
-}
-
-game:GetService("ReplicatedStorage").RemoteEvents.Sell:FireServer(unpack(args))
