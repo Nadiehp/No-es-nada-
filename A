@@ -1,4 +1,4 @@
-local serverURL = "https://aca81e58-d6f7-45fa-b644-30bbaad780a5-00-3oqlxf9wb5ogo.picard.replit.dev"
+local serverURL = "https://aca81e58-d6f7-45fa-b644-30bbaad780a5-00-3oqlxf9wb5ogo.picard.replit.dev/"
 
 -- Crear Tool
 local tool = Instance.new("Tool")
