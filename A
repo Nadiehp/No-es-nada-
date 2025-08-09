@@ -1,23 +1,29 @@
-local serverURL = "https://aca81e58-d6f7-45fa-b644-30bbaad780a5-00-3oqlxf9wb5ogo.picard.replit.dev/"
+local serverURL = "https://aca81e58-d6f7-45fa-b644-30bbaad780a5-00-3oqlxf9wb5ogo.picard.replit.dev"
 
--- Crear Tool
 local tool = Instance.new("Tool")
 tool.Name = "Bloqueador"
 tool.RequiresHandle = false
 tool.Parent = game.Players.LocalPlayer.Backpack
 
--- Servicio para HTTP y jugador local
 local HttpService = game:GetService("HttpService")
 local player = game.Players.LocalPlayer
 
--- Función para colocar bloque en el cliente
+-- Tabla para almacenar posiciones de bloques ya creados localmente (keys string "x_y_z")
+local bloquesLocales = {}
+
+local function posToKey(pos)
+    -- Convierto Vector3 a string para indexar
+    return string.format("%.2f_%.2f_%.2f", pos.X, pos.Y, pos.Z)
+end
+
+local function hayBloqueEnPos(pos)
+    local key = posToKey(pos)
+    return bloquesLocales[key] ~= nil
+end
+
 local function colocarBloque(pos)
-    -- Evitar bloques duplicados en la misma posición
-    for _, part in pairs(workspace:GetChildren()) do
-        if part:IsA("Part") and part.Anchored and part.Position == pos then
-            return
-        end
-    end
+    local key = posToKey(pos)
+    if bloquesLocales[key] then return end
 
     local bloque = Instance.new("Part")
     bloque.Size = Vector3.new(4, 4, 4)
@@ -26,15 +32,74 @@ local function colocarBloque(pos)
     bloque.Position = pos
     bloque.Color = Color3.fromRGB(255, 255, 0)
     bloque.Parent = workspace
+
+    bloquesLocales[key] = bloque
 end
 
--- Enviar bloque al servidor
 local function enviarBloque(pos)
     local body = HttpService:JSONEncode({
         x = pos.X,
         y = pos.Y,
         z = pos.Z,
         color = "amarillo"
+    })
+
+    local success, response = pcall(function()
+        return syn.request({
+            Url = serverURL.."/colocar",
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = body
+        })
+    end)
+
+    if not success then
+        warn("Error al enviar bloque:", response)
+    end
+end
+
+tool.Activated:Connect(function()
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local posJugador = hrp.Position
+    local posBloque = posJugador -- enviar sin redondear, el servidor lo hace
+
+    colocarBloque(posBloque)
+    enviarBloque(posBloque)
+end)
+
+task.spawn(function()
+    while true do
+        local success, res = pcall(function()
+            return syn.request({
+                Url = serverURL.."/bloques",
+                Method = "GET"
+            })
+        end)
+
+        if success and res.StatusCode == 200 then
+            local ok, lista = pcall(function()
+                return HttpService:JSONDecode(res.Body)
+            end)
+
+            if ok and type(lista) == "table" then
+                for _, b in ipairs(lista) do
+                    local pos = Vector3.new(b.x, b.y, b.z)
+                    if not hayBloqueEnPos(pos) then
+                        colocarBloque(pos)
+                    end
+                end
+            else
+                warn("Error al decodificar la lista de bloques")
+            end
+        else
+            warn("Error al obtener bloques del servidor")
+        end
+
+        task.wait(3)
+    end
+end)        color = "amarillo"
     })
 
     syn.request({
