@@ -12,8 +12,7 @@ local player = game.Players.LocalPlayer
 local bloquesLocales = {}
 
 local function posToKey(pos)
-    -- Convierto Vector3 a string para indexar
-    return string.format("%.2f_%.2f_%.2f", pos.X, pos.Y, pos.Z)
+    return string.format("%d_%d_%d", math.floor(pos.X + 0.5), math.floor(pos.Y + 0.5), math.floor(pos.Z + 0.5))
 end
 
 local function hayBloqueEnPos(pos)
@@ -23,8 +22,12 @@ end
 
 local function colocarBloque(pos)
     local key = posToKey(pos)
-    if bloquesLocales[key] then return end
+    if bloquesLocales[key] then
+        print("Bloque ya existe en:", key)
+        return
+    end
 
+    print("Colocando bloque en:", key)
     local bloque = Instance.new("Part")
     bloque.Size = Vector3.new(4, 4, 4)
     bloque.Anchored = true
@@ -55,6 +58,8 @@ local function enviarBloque(pos)
 
     if not success then
         warn("Error al enviar bloque:", response)
+    else
+        print("Bloque enviado:", posToKey(pos))
     end
 end
 
@@ -63,7 +68,7 @@ tool.Activated:Connect(function()
     if not hrp then return end
 
     local posJugador = hrp.Position
-    local posBloque = posJugador -- enviar sin redondear, el servidor lo hace
+    local posBloque = posJugador -- el servidor hará el redondeo
 
     colocarBloque(posBloque)
     enviarBloque(posBloque)
@@ -79,6 +84,7 @@ task.spawn(function()
         end)
 
         if success and res.StatusCode == 200 then
+            print("Respuesta servidor:", res.Body)
             local ok, lista = pcall(function()
                 return HttpService:JSONDecode(res.Body)
             end)
@@ -88,6 +94,8 @@ task.spawn(function()
                     local pos = Vector3.new(b.x, b.y, b.z)
                     if not hayBloqueEnPos(pos) then
                         colocarBloque(pos)
+                    else
+                        print("Bloque ya existe localmente:", posToKey(pos))
                     end
                 end
             else
@@ -98,41 +106,5 @@ task.spawn(function()
         end
 
         task.wait(3)
-    end
-end)        color = "amarillo"
-    })
-
-    syn.request({
-        Url = serverURL.."/colocar",
-        Method = "POST",
-        Headers = {["Content-Type"] = "application/json"},
-        Body = body
-    })
-end
-
--- Cuando activas el Tool
-tool.Activated:Connect(function()
-    local posJugador = player.Character.HumanoidRootPart.Position
-    local posBloque = Vector3.new(
-        math.floor(posJugador.X / 4 + 0.5) * 4,
-        math.floor(posJugador.Y / 4 + 0.5) * 4,
-        math.floor(posJugador.Z / 4 + 0.5) * 4
-    )
-    colocarBloque(posBloque)
-    enviarBloque(posBloque)
-end)
-
--- Actualizar bloques de otros jugadores
-task.spawn(function()
-    while true do
-        local res = syn.request({
-            Url = serverURL.."/bloques",
-            Method = "GET"
-        })
-        local lista = HttpService:JSONDecode(res.Body)
-        for _, b in ipairs(lista) do
-            colocarBloque(Vector3.new(b.x, b.y, b.z))
-        end
-        task.wait(2) -- Actualizar cada 2 segundos
     end
 end)
