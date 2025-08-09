@@ -1,0 +1,73 @@
+local serverURL = "https://aca81e58-d6f7-45fa-b644-30bbaad780a5-00-3oqlxf9wb5ogo.picard.replit.dev"
+
+-- Crear Tool
+local tool = Instance.new("Tool")
+tool.Name = "Bloqueador"
+tool.RequiresHandle = false
+tool.Parent = game.Players.LocalPlayer.Backpack
+
+-- Servicio para HTTP y jugador local
+local HttpService = game:GetService("HttpService")
+local player = game.Players.LocalPlayer
+
+-- Función para colocar bloque en el cliente
+local function colocarBloque(pos)
+    -- Evitar bloques duplicados en la misma posición
+    for _, part in pairs(workspace:GetChildren()) do
+        if part:IsA("Part") and part.Anchored and part.Position == pos then
+            return
+        end
+    end
+
+    local bloque = Instance.new("Part")
+    bloque.Size = Vector3.new(4, 4, 4)
+    bloque.Anchored = true
+    bloque.CanCollide = true
+    bloque.Position = pos
+    bloque.Color = Color3.fromRGB(255, 255, 0)
+    bloque.Parent = workspace
+end
+
+-- Enviar bloque al servidor
+local function enviarBloque(pos)
+    local body = HttpService:JSONEncode({
+        x = pos.X,
+        y = pos.Y,
+        z = pos.Z,
+        color = "amarillo"
+    })
+
+    syn.request({
+        Url = serverURL.."/colocar",
+        Method = "POST",
+        Headers = {["Content-Type"] = "application/json"},
+        Body = body
+    })
+end
+
+-- Cuando activas el Tool
+tool.Activated:Connect(function()
+    local posJugador = player.Character.HumanoidRootPart.Position
+    local posBloque = Vector3.new(
+        math.floor(posJugador.X / 4 + 0.5) * 4,
+        math.floor(posJugador.Y / 4 + 0.5) * 4,
+        math.floor(posJugador.Z / 4 + 0.5) * 4
+    )
+    colocarBloque(posBloque)
+    enviarBloque(posBloque)
+end)
+
+-- Actualizar bloques de otros jugadores
+task.spawn(function()
+    while true do
+        local res = syn.request({
+            Url = serverURL.."/bloques",
+            Method = "GET"
+        })
+        local lista = HttpService:JSONDecode(res.Body)
+        for _, b in ipairs(lista) do
+            colocarBloque(Vector3.new(b.x, b.y, b.z))
+        end
+        task.wait(2) -- Actualizar cada 2 segundos
+    end
+end)
